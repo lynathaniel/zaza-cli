@@ -27,16 +27,16 @@ interface Recipe {
   oliveOil: number;
 }
 
-// Base recipe for 1x 14" pizza (380g dough)
+// Base recipe for 1x 14" pizza
 const BASE_RECIPE: Recipe = {
-  flourBlend: { breadFlour: 50.5, doubleZero: 21.5 },
-  water: 42.5,
-  poolish: { flour: 8.5, water: 8.5, yeast: 0.02 },
-  yeast: 0.05,
-  sugar: 0.85,
-  diastaticMalt: 0.5,
-  salt: 1.7,
-  oliveOil: 0.85,
+  flourBlend: { breadFlour: 138, doubleZero: 66 },
+  water: 128.5,
+  poolish: { flour: 23.5, water: 23.5, yeast: 0.055 },
+  yeast: 0.14,
+  sugar: 2.35,
+  diastaticMalt: 1.4,
+  salt: 4.7,
+  oliveOil: 2.35,
 };
 
 const SIZE_12_FACTOR = (12 / 14) ** 2;  // Area scaling: ~0.735
@@ -71,54 +71,74 @@ function scaleRecipe(recipe: Recipe, factor: number): Recipe {
 }
 
 // Format number for display
-function fmt(num: number): string {
-  return num.toFixed(2);
+function fmt(num: number, decimal_override?: number): string {
+  const decimal = decimal_override ?? 1;
+  return num.toFixed(decimal);
 }
 
 // Print recipe with specified format
 function printRecipe(recipe: Recipe): void {
-  console.log(chalk.bold.cyan('\nCareful! This dough recipe is fresh out of the oven!\n'));
-  console.log(chalk.bold.yellow('**Dough**'));
+  console.log(chalk.bold.cyan('\nCareful! This recipe is fresh out of the oven!\n'));
+  console.log(chalk.bold.yellow('Dough'));
   const flourBlendTotal = recipe.flourBlend.breadFlour + recipe.flourBlend.doubleZero;
-  console.log(chalk.white(`- ${fmt(flourBlendTotal)}g flour blend`));
-  console.log(chalk.white(`- ${fmt(recipe.water)}g water`));
+  console.log(chalk.white(`- ${fmt(flourBlendTotal, 0)}g flour blend`));
+  console.log(chalk.white(`- ${fmt(recipe.water, 0)}g water`));
   const poolishTotal = recipe.poolish.flour + recipe.poolish.water + recipe.poolish.yeast;
   console.log(chalk.white(`- ${fmt(poolishTotal)}g poolish`));
-  console.log(chalk.white(`- ${fmt(recipe.yeast)}g dry yeast`));
+  console.log(chalk.white(`- ${fmt(recipe.yeast, 2)}g dry yeast`));
   console.log(chalk.white(`- ${fmt(recipe.sugar)}g sugar`));
   console.log(chalk.white(`- ${fmt(recipe.diastaticMalt)}g diastatic malt`));
   console.log(chalk.white(`- ${fmt(recipe.salt)}g salt`));
   console.log(chalk.white(`- ${fmt(recipe.oliveOil)}g olive oil`));
-  console.log(chalk.bold.yellow('\n**Flour Blend:**'));
-  console.log(chalk.white(`- ${fmt(recipe.flourBlend.breadFlour)}g bread flour`));
-  console.log(chalk.white(`- ${fmt(recipe.flourBlend.doubleZero)}g 00 flour`));
-  console.log(chalk.bold.yellow('\n**Poolish:**'));
-  console.log(chalk.white(`- ${fmt(recipe.poolish.flour)}g flour`));
-  console.log(chalk.white(`- ${fmt(recipe.poolish.water)}g water`));
-  console.log(chalk.white(`- ${fmt(recipe.poolish.yeast)}g dry yeast`));
+  console.log(chalk.bold.yellow('\nFlour Blend:'));
+  console.log(chalk.white(`- ${fmt(recipe.flourBlend.breadFlour, 0)}g bread flour`));
+  console.log(chalk.white(`- ${fmt(recipe.flourBlend.doubleZero, 0)}g 00 flour`));
+  console.log(chalk.bold.yellow('\nPoolish:'));
+  console.log(chalk.white(`- ${fmt(recipe.poolish.flour, 0)}g flour`));
+  console.log(chalk.white(`- ${fmt(recipe.poolish.water, 0)}g water`));
+  console.log(chalk.white(`- ${fmt(recipe.poolish.yeast, 2)}g dry yeast`));
+  console.log(chalk.bold.yellow(`\nTotal Yield:`), chalk.bold.white(`${fmt(totalWeight(recipe), 0)}g`));
   console.log('');
 }
 
 // Interactive mode
 async function interactiveMode(): Promise<void> {
+  console.clear();
   console.log(chalk.bold.cyan('\n🍕 YAYA it\'s time for ZAZA 🍕\n'));
 
-  const sizeResponse = await prompts({
-    type: 'autocomplete',
-    name: 'size',
-    message: 'How many inches are we packin\' today?',
-    choices: [
-      { title: '12 in.', value: 12 },
-      { title: '14 in.', value: 14 },
-    ],
-    suggest: (input, choices) => {
-      const num = parseFloat(input);
-      if (!isNaN(num) && num > 0 && !choices.some((c: any) => c.value === num)) {
-        return Promise.resolve([...choices, { title: `${num} in.`, value: num }]);
-      }
-      return Promise.resolve(choices);
-    },
-  });
+  // Handle Ctrl+C
+  const handleExit = () => {
+    process.stdout.write('\n');
+    process.exit(0);
+  };
+  process.on('SIGINT', handleExit);
+
+  try {
+    await prompts({
+      type: 'text',
+      name: 'start',
+      message: 'Press enter to start banging out some dough',
+      onState: (state: any) => {
+        if (state.aborted) {
+          handleExit();
+        }
+      },
+    });
+
+    const sizeResponse = await prompts({
+      type: 'select',
+      name: 'size',
+      message: 'What size pizza we lookin\' at today boss?',
+      choices: [
+        { title: '12 in.', value: 12 },
+        { title: '14 in.', value: 14 },
+      ],
+      onState: (state: any) => {
+        if (state.aborted) {
+          handleExit();
+        }
+      },
+    });
 
   var size = sizeResponse.size || 14;
 
@@ -144,12 +164,15 @@ async function interactiveMode(): Promise<void> {
     }
   }
 
-  // Calculate factor based on size and number of pizzas
-  const sizeFactor = size === 14 ? 1 : size === 12 ? SIZE_12_FACTOR : (size / 14) ** 2;
-  const factor = sizeFactor * numPizzas;
+    // Calculate factor based on size and number of pizzas
+    const sizeFactor = size === 14 ? 1 : size === 12 ? SIZE_12_FACTOR : (size / 14) ** 2;
+    const factor = sizeFactor * numPizzas;
 
-  const recipe = scaleRecipe(BASE_RECIPE, factor);
-  printRecipe(recipe);
+    const recipe = scaleRecipe(BASE_RECIPE, factor);
+    printRecipe(recipe);
+  } finally {
+    process.off('SIGINT', handleExit);
+  }
 }
 
 // CLI setup
@@ -163,7 +186,7 @@ program
 program
   .option('-s, --size <inches>', 'Pizza diameter in inches')
   .option('-n, --number <count>', 'Number of pizzas')
-  .option('-w, --weight <grams>', 'Target total dough weight in grams')
+  .option('-y, --yield <grams>', 'Target total dough yield in grams')
   .action((options) => {
     const hasSize = options.size !== undefined;
     const hasNumber = options.number !== undefined;
