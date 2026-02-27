@@ -2,7 +2,6 @@
 
 import chalk from 'chalk';
 import { Command } from 'commander';
-import ora from 'ora';
 import prompts from 'prompts';
 
 // Recipe interfaces
@@ -12,120 +11,149 @@ interface Poolish {
   yeast: number;
 }
 
-interface Recipe {
-  poolish: Poolish;
-  flour: number;
-  water: number;
-  salt: number;
-  yeast?: number;
+interface FlourBlend {
+  breadFlour: number;  // 70%
+  doubleZero: number;  // 30%
 }
 
-// Base recipe for 2x 14" pizzas
+interface Recipe {
+  flourBlend: FlourBlend;
+  water: number;
+  poolish: Poolish;
+  yeast: number;
+  sugar: number;
+  diastaticMalt: number;
+  salt: number;
+  oliveOil: number;
+}
+
+// Base recipe for 1x 14" pizza (380g dough)
 const BASE_RECIPE: Recipe = {
-  poolish: {
-    flour: 400,
-    water: 400,
-    yeast: 0.5,
-  },
-  flour: 600,
-  water: 270,
-  salt: 24,
-  yeast: 0.5,
+  flourBlend: { breadFlour: 50.5, doubleZero: 21.5 },
+  water: 42.5,
+  poolish: { flour: 8.5, water: 8.5, yeast: 0.02 },
+  yeast: 0.05,
+  sugar: 0.85,
+  diastaticMalt: 0.5,
+  salt: 1.7,
+  oliveOil: 0.85,
 };
+
+const SIZE_12_FACTOR = (12 / 14) ** 2;  // Area scaling: ~0.735
 
 // Calculate total weight of a recipe
 function totalWeight(recipe: Recipe): number {
   const poolishWeight = recipe.poolish.flour + recipe.poolish.water + recipe.poolish.yeast;
-  return poolishWeight + recipe.flour + recipe.water + recipe.salt + (recipe.yeast || 0);
+  const flourBlendWeight = recipe.flourBlend.breadFlour + recipe.flourBlend.doubleZero;
+  return poolishWeight + flourBlendWeight + recipe.water + recipe.yeast +
+         recipe.sugar + recipe.diastaticMalt + recipe.salt + recipe.oliveOil;
 }
 
 // Scale recipe by a factor
 function scaleRecipe(recipe: Recipe, factor: number): Recipe {
   return {
+    flourBlend: {
+      breadFlour: recipe.flourBlend.breadFlour * factor,
+      doubleZero: recipe.flourBlend.doubleZero * factor,
+    },
+    water: recipe.water * factor,
     poolish: {
       flour: recipe.poolish.flour * factor,
       water: recipe.poolish.water * factor,
       yeast: recipe.poolish.yeast * factor,
     },
-    flour: recipe.flour * factor,
-    water: recipe.water * factor,
+    yeast: recipe.yeast * factor,
+    sugar: recipe.sugar * factor,
+    diastaticMalt: recipe.diastaticMalt * factor,
     salt: recipe.salt * factor,
-    yeast: recipe.yeast ? recipe.yeast * factor : undefined,
+    oliveOil: recipe.oliveOil * factor,
   };
 }
 
 // Format number for display
 function fmt(num: number): string {
-  return Math.round(num).toString();
+  return num.toFixed(2);
 }
 
-// Print recipe with colors
+// Print recipe with specified format
 function printRecipe(recipe: Recipe): void {
-  console.log(chalk.bold.cyan('\n🍕 ZAZA Pizza Dough Recipe\n'));
-  console.log(chalk.bold.yellow('Poolish (Pre-ferment):'));
-  console.log(chalk.white(`  Flour:   ${fmt(recipe.poolish.flour)}g`));
-  console.log(chalk.white(`  Water:   ${fmt(recipe.poolish.water)}g`));
-  console.log(chalk.white(`  Yeast:   ${fmt(recipe.poolish.yeast)}g`));
-  console.log(chalk.bold.yellow('\nMain Dough:'));
-  console.log(chalk.white(`  Flour:   ${fmt(recipe.flour)}g`));
-  console.log(chalk.white(`  Water:   ${fmt(recipe.water)}g`));
-  console.log(chalk.white(`  Salt:    ${fmt(recipe.salt)}g`));
-  if (recipe.yeast) {
-    console.log(chalk.white(`  Yeast:   ${fmt(recipe.yeast)}g`));
-  }
-  console.log(chalk.bold.gray(`\nTotal Weight: ${fmt(totalWeight(recipe))}g`));
+  console.log(chalk.bold.cyan('\nCareful! This dough recipe is fresh out of the oven!\n'));
+  console.log(chalk.bold.yellow('**Dough**'));
+  const flourBlendTotal = recipe.flourBlend.breadFlour + recipe.flourBlend.doubleZero;
+  console.log(chalk.white(`- ${fmt(flourBlendTotal)}g flour blend`));
+  console.log(chalk.white(`- ${fmt(recipe.water)}g water`));
+  const poolishTotal = recipe.poolish.flour + recipe.poolish.water + recipe.poolish.yeast;
+  console.log(chalk.white(`- ${fmt(poolishTotal)}g poolish`));
+  console.log(chalk.white(`- ${fmt(recipe.yeast)}g dry yeast`));
+  console.log(chalk.white(`- ${fmt(recipe.sugar)}g sugar`));
+  console.log(chalk.white(`- ${fmt(recipe.diastaticMalt)}g diastatic malt`));
+  console.log(chalk.white(`- ${fmt(recipe.salt)}g salt`));
+  console.log(chalk.white(`- ${fmt(recipe.oliveOil)}g olive oil`));
+  console.log(chalk.bold.yellow('\n**Flour Blend:**'));
+  console.log(chalk.white(`- ${fmt(recipe.flourBlend.breadFlour)}g bread flour`));
+  console.log(chalk.white(`- ${fmt(recipe.flourBlend.doubleZero)}g 00 flour`));
+  console.log(chalk.bold.yellow('\n**Poolish:**'));
+  console.log(chalk.white(`- ${fmt(recipe.poolish.flour)}g flour`));
+  console.log(chalk.white(`- ${fmt(recipe.poolish.water)}g water`));
+  console.log(chalk.white(`- ${fmt(recipe.poolish.yeast)}g dry yeast`));
   console.log('');
 }
 
 // Interactive mode
 async function interactiveMode(): Promise<void> {
-  const response = await prompts([
-    {
-      type: 'select',
-      name: 'mode',
-      message: 'What would you like to calculate?',
-      choices: [
-        { title: 'By pizza size', value: 'size' },
-        { title: 'By number of pizzas', value: 'number' },
-        { title: 'By target weight', value: 'weight' },
-      ],
-    },
-  ]);
+  console.log(chalk.bold.cyan('\n🍕 YAYA it\'s time for ZAZA 🍕\n'));
 
-  let recipe: Recipe;
-  let factor: number;
+  const sizeResponse = await prompts({
+    type: 'select',
+    name: 'size',
+    message: 'How many inches are we packin\' today?',
+    choices: [
+      { title: '12 in', value: 12 },
+      { title: '14 in', value: 14 },
+      { title: 'whoa, we finally cop the gozney?', value: 'custom' },
+    ],
+  });
 
-  if (response.mode === 'size') {
-    const sizeResponse = await prompts({
+  var size: number;
+  if (sizeResponse.size === 'custom') {
+    const customResponse = await prompts({
       type: 'number',
-      name: 'size',
-      message: 'Pizza diameter (inches)?',
-      initial: 14,
+      name: 'customSize',
+      message: '',
+      initial: 16,
     });
-    const baseArea = Math.PI * Math.pow(7, 2); // 14" = 14/2 radius
-    const targetArea = Math.PI * Math.pow(sizeResponse.size / 2, 2);
-    factor = targetArea / baseArea / 2; // Base recipe is 2x 14"
-  } else if (response.mode === 'number') {
-    const numResponse = await prompts({
-      type: 'number',
-      name: 'number',
-      message: 'How many 14" pizzas?',
-      initial: 2,
-    });
-    factor = numResponse.number / 2;
+    size = customResponse.customSize || 14;
   } else {
-    const weightResponse = await prompts({
-      type: 'number',
-      name: 'weight',
-      message: 'Target total dough weight (grams)?',
-      initial: 1688,
-    });
-    factor = weightResponse.weight / totalWeight(BASE_RECIPE);
+    size = sizeResponse.size;
   }
 
-  const spinner = ora('Calculating your dough...').start();
-  recipe = scaleRecipe(BASE_RECIPE, factor);
-  spinner.stop();
+  var numPizzas = 2;
+  var validCount = false;
+
+  while (!validCount) {
+    const countResponse = await prompts({
+      type: 'number',
+      name: 'count',
+      message: 'How many pies we slangin\'?',
+      initial: 2,
+    });
+
+    numPizzas = countResponse.count || 0;
+
+    if (numPizzas < 1) {
+      console.log(chalk.red('whoa betch! stopa wastina myuh time! 🤌\n'));
+    } else if (numPizzas > 8) {
+      console.log(chalk.red('bruh chill tf out 💀\n'));
+    } else {
+      validCount = true;
+    }
+  }
+
+  // Calculate factor based on size and number of pizzas
+  const sizeFactor = size === 14 ? 1 : size === 12 ? SIZE_12_FACTOR : (size / 14) ** 2;
+  const factor = sizeFactor * numPizzas;
+
+  const recipe = scaleRecipe(BASE_RECIPE, factor);
   printRecipe(recipe);
 }
 
@@ -138,32 +166,33 @@ program
   .version('1.0.0');
 
 program
-  .option('--size <inches>', 'Pizza diameter in inches')
-  .option('--number <count>', 'Number of 14" pizzas')
-  .option('--weight <grams>', 'Target total dough weight in grams')
+  .option('-s, --size <inches>', 'Pizza diameter in inches')
+  .option('-n, --number <count>', 'Number of pizzas')
+  .option('-w, --weight <grams>', 'Target total dough weight in grams')
   .action((options) => {
-    if (options.size || options.number || options.weight) {
-      const spinner = ora('Calculating your dough...').start();
-      let recipe: Recipe;
+    const hasSize = options.size !== undefined;
+    const hasNumber = options.number !== undefined;
+    const hasWeight = options.weight !== undefined;
 
-      if (options.size) {
-        const size = parseFloat(options.size);
-        const baseArea = Math.PI * Math.pow(7, 2);
-        const targetArea = Math.PI * Math.pow(size / 2, 2);
-        const factor = targetArea / baseArea / 2;
-        recipe = scaleRecipe(BASE_RECIPE, factor);
-      } else if (options.number) {
-        const number = parseFloat(options.number);
-        const factor = number / 2;
-        recipe = scaleRecipe(BASE_RECIPE, factor);
-      } else {
-        const weight = parseFloat(options.weight);
-        const factor = weight / totalWeight(BASE_RECIPE);
-        recipe = scaleRecipe(BASE_RECIPE, factor);
+    if (hasWeight) {
+      if (hasSize || hasNumber) {
+        console.error(chalk.red('Error: --weight cannot be used with --size or --number'));
+        process.exit(1);
       }
-
-      spinner.stop();
+      const weight = parseFloat(options.weight);
+      const factor = weight / totalWeight(BASE_RECIPE);
+      const recipe = scaleRecipe(BASE_RECIPE, factor);
       printRecipe(recipe);
+    } else if (hasSize && hasNumber) {
+      const size = parseFloat(options.size);
+      const number = parseFloat(options.number);
+      const sizeFactor = size === 14 ? 1 : size === 12 ? SIZE_12_FACTOR : (size / 14) ** 2;
+      const factor = sizeFactor * number;
+      const recipe = scaleRecipe(BASE_RECIPE, factor);
+      printRecipe(recipe);
+    } else if (hasSize || hasNumber) {
+      console.error(chalk.red('Error: --size and --number must be used together'));
+      process.exit(1);
     } else {
       interactiveMode().catch(console.error);
     }
