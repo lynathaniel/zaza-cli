@@ -104,28 +104,23 @@ async function interactiveMode(): Promise<void> {
   console.log(chalk.bold.cyan('\n🍕 YAYA it\'s time for ZAZA 🍕\n'));
 
   const sizeResponse = await prompts({
-    type: 'select',
+    type: 'autocomplete',
     name: 'size',
     message: 'How many inches are we packin\' today?',
     choices: [
-      { title: '12 in', value: 12 },
-      { title: '14 in', value: 14 },
-      { title: 'whoa, we finally cop the gozney?', value: 'custom' },
+      { title: '12 in.', value: 12 },
+      { title: '14 in.', value: 14 },
     ],
+    suggest: (input, choices) => {
+      const num = parseFloat(input);
+      if (!isNaN(num) && num > 0 && !choices.some((c: any) => c.value === num)) {
+        return Promise.resolve([...choices, { title: `${num} in.`, value: num }]);
+      }
+      return Promise.resolve(choices);
+    },
   });
 
-  var size: number;
-  if (sizeResponse.size === 'custom') {
-    const customResponse = await prompts({
-      type: 'number',
-      name: 'customSize',
-      message: '',
-      initial: 16,
-    });
-    size = customResponse.customSize || 14;
-  } else {
-    size = sizeResponse.size;
-  }
+  var size = sizeResponse.size || 14;
 
   var numPizzas = 2;
   var validCount = false;
