@@ -92,9 +92,8 @@ async function interactiveMode(): Promise<void> {
     },
   ]);
 
-  const spinner = ora('Calculating your dough...').start();
-
   let recipe: Recipe;
+  let factor: number;
 
   if (response.mode === 'size') {
     const sizeResponse = await prompts({
@@ -105,8 +104,7 @@ async function interactiveMode(): Promise<void> {
     });
     const baseArea = Math.PI * Math.pow(7, 2); // 14" = 14/2 radius
     const targetArea = Math.PI * Math.pow(sizeResponse.size / 2, 2);
-    const factor = targetArea / baseArea / 2; // Base recipe is 2x 14"
-    recipe = scaleRecipe(BASE_RECIPE, factor);
+    factor = targetArea / baseArea / 2; // Base recipe is 2x 14"
   } else if (response.mode === 'number') {
     const numResponse = await prompts({
       type: 'number',
@@ -114,8 +112,7 @@ async function interactiveMode(): Promise<void> {
       message: 'How many 14" pizzas?',
       initial: 2,
     });
-    const factor = numResponse.number / 2;
-    recipe = scaleRecipe(BASE_RECIPE, factor);
+    factor = numResponse.number / 2;
   } else {
     const weightResponse = await prompts({
       type: 'number',
@@ -123,10 +120,11 @@ async function interactiveMode(): Promise<void> {
       message: 'Target total dough weight (grams)?',
       initial: 1688,
     });
-    const factor = weightResponse.weight / totalWeight(BASE_RECIPE);
-    recipe = scaleRecipe(BASE_RECIPE, factor);
+    factor = weightResponse.weight / totalWeight(BASE_RECIPE);
   }
 
+  const spinner = ora('Calculating your dough...').start();
+  recipe = scaleRecipe(BASE_RECIPE, factor);
   spinner.stop();
   printRecipe(recipe);
 }
